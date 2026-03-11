@@ -25,8 +25,11 @@ alerting:
         - targets: ['alertmanager:9093']
 
 # Alerting rule files — evaluated at `evaluation_interval`
+# Core rules are always loaded; otel-demo rules are only present when
+# the otel-demo compose file mounts the rules-otel-demo directory
 rule_files:
   - /etc/prometheus/rules/*.yml
+  - /etc/prometheus/rules-otel-demo/*.yml
 
 # OTLP configuration for receiving metrics via OpenTelemetry Protocol
 otlp:

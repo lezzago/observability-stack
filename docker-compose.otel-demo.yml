@@ -729,4 +729,28 @@ services:
     <<: *network
     logging: *logging
 
+  # ******************
+  # Observability Overrides & Init
+  # ******************
+  # Prometheus override - Mounts otel-demo specific alerting rules into a separate directory
+  # Compose merges this with the prometheus service from docker-compose.yml
+  prometheus:
+    volumes:
+      - ./docker-compose/prometheus/rules-otel-demo:/etc/prometheus/rules-otel-demo:ro
 
+  # OTel Demo Monitors Init - Creates OpenSearch alerting monitors for demo services
+  otel-demo-monitors-init:
+    image: python:3.11-alpine
+    container_name: otel-demo-monitors-init
+    command: sh -c "pip install requests && python /init.py"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    environment:
+      - OPENSEARCH_USER=${OPENSEARCH_USER}
+      - OPENSEARCH_PASSWORD=${OPENSEARCH_PASSWORD}
+    volumes:
+      - ./docker-compose/opentelemetry-demo/init-otel-demo-monitors.py:/init.py
+    <<: *network
+    restart: "no"
+    logging: *logging
