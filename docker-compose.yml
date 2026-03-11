@@ -23,6 +23,8 @@ volumes:
     driver: local
   prometheus-data:
     driver: local
+  alertmanager-data:
+    driver: local
 
 services:
   # OpenTelemetry Collector - Receives telemetry data via OTLP protocol
@@ -164,6 +166,8 @@ services:
       - '--web.enable-otlp-receiver'
     volumes:
       - ./docker-compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      # Alerting rules evaluated at evaluation_interval
+      - ./docker-compose/prometheus/rules:/etc/prometheus/rules:ro
       # Persist metrics data across container restarts
       - prometheus-data:/prometheus
     ports:
@@ -176,6 +180,36 @@ services:
       resources:
         limits:
           memory: ${PROMETHEUS_MEMORY_LIMIT}
+    logging: *logging
+
+  # Prometheus Alertmanager - Alert routing, grouping, deduplication, and silencing
+  alertmanager:
+    image: prom/alertmanager:${ALERTMANAGER_VERSION}
+    container_name: alertmanager
+    pull_policy: always
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.listen-address=:9093'
+    volumes:
+      - ./docker-compose/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Persist silences and notification state across restarts
+      - alertmanager-data:/alertmanager
+    ports:
+      # Web UI and API endpoint
+      - "${ALERTMANAGER_PORT}:9093"
+    networks:
+      - observability-stack-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${ALERTMANAGER_MEMORY_LIMIT}
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     logging: *logging
 
   # OpenSearch Dashboards - Web UI for visualizing logs and traces

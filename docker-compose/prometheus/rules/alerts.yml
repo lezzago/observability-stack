@@ -1,0 +1,178 @@
+# Prometheus Alerting Rules for the Observability Stack
+# Evaluated at the global `evaluation_interval` (default: 60s)
+#
+# These rules are designed to work with the minimum stack (no agents required).
+# Rules in the application_health group only fire when agents push OTLP metrics.
+#
+# Rule groups:
+#   - stack_health:          Prometheus and Alertmanager self-monitoring
+#   - otel_collector_health: OpenTelemetry Collector pipeline health
+#   - application_health:    Agent/app alerts (fires only when OTLP metrics exist)
+
+groups:
+  # Stack health — monitors Prometheus and Alertmanager availability
+  # These alerts always work because Prometheus and Alertmanager are core services
+  - name: stack_health
+    interval: 60s
+    rules:
+      # Fires when any Prometheus scrape target is unreachable for 2 minutes
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: monitoring
+        annotations:
+          summary: "Scrape target {{ $labels.instance }} (job {{ $labels.job }}) is down"
+          description: "Prometheus cannot reach this target. Check if the service is running."
+
+      # Fires when a Prometheus config reload fails (bad config syntax)
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: prometheus
+        annotations:
+          summary: "Prometheus config reload failed"
+          description: "Prometheus failed to reload its configuration. The last successful config is still active."
+
+      # Fires when Prometheus fails to send alerts to Alertmanager
+      - alert: PrometheusNotificationsFailed
+        expr: increase(prometheus_notifications_failed_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          component: prometheus
+        annotations:
+          summary: "Prometheus failed to send {{ $value }} notification(s) to Alertmanager"
+          description: "Check Alertmanager connectivity and health."
+
+      # Fires when Prometheus TSDB compaction fails (storage corruption risk)
+      - alert: PrometheusTSDBCompactionsFailed
+        expr: increase(prometheus_tsdb_compactions_failed_total[1h]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          component: prometheus
+        annotations:
+          summary: "Prometheus TSDB compaction failures detected"
+          description: "Storage compaction errors may indicate disk issues or data corruption."
+
+      # Fires when alerting rule evaluation fails repeatedly
+      - alert: PrometheusRuleEvaluationFailures
+        expr: increase(prometheus_rule_evaluation_failures_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          component: prometheus
+        annotations:
+          summary: "Prometheus rule evaluation failures in group {{ $labels.rule_group }}"
+          description: "Check rule syntax and referenced metrics availability."
+
+  # OTel Collector health — monitors the telemetry ingestion pipeline
+  # These alerts always work because the collector is a core service scraped at :8888
+  - name: otel_collector_health
+    interval: 30s
+    rules:
+      # Fires when the collector fails to export data to backends (Data Prepper, Prometheus)
+      - alert: OtelExporterSendFailures
+        expr: >
+          rate(otelcol_exporter_send_failed_spans_total[5m]) > 0
+          or rate(otelcol_exporter_send_failed_metric_points_total[5m]) > 0
+          or rate(otelcol_exporter_send_failed_log_records_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: otel-collector
+        annotations:
+          summary: "OTel Collector failing to export to {{ $labels.exporter }}"
+          description: "The collector cannot deliver telemetry data. Check backend availability."
+
+      # Fires when the collector rejects incoming telemetry (receiver overload)
+      - alert: OtelReceiverRefusals
+        expr: >
+          rate(otelcol_receiver_refused_spans_total[5m]) > 0
+          or rate(otelcol_receiver_refused_metric_points_total[5m]) > 0
+          or rate(otelcol_receiver_refused_log_records_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: otel-collector
+        annotations:
+          summary: "OTel Collector refusing incoming data on {{ $labels.receiver }}"
+          description: "The collector is rejecting telemetry. This may indicate backpressure or resource constraints."
+
+      # Fires when the export queue is more than 80% full (backpressure building)
+      - alert: OtelExporterQueueNearCapacity
+        expr: >
+          (otelcol_exporter_queue_size / otelcol_exporter_queue_capacity) > 0.8
+          and otelcol_exporter_queue_capacity > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: otel-collector
+        annotations:
+          summary: "OTel Collector export queue at {{ $value | humanizePercentage }} capacity for {{ $labels.exporter }}"
+          description: "The export queue is filling up. The downstream backend may be slow or unavailable."
+
+      # Fires when the collector drops telemetry data (processor overflow)
+      - alert: OtelCollectorDroppingData
+        expr: >
+          rate(otelcol_processor_dropped_spans_total[5m]) > 0
+          or rate(otelcol_processor_dropped_metric_points_total[5m]) > 0
+          or rate(otelcol_processor_dropped_log_records_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: otel-collector
+        annotations:
+          summary: "OTel Collector dropping data in processor {{ $labels.processor }}"
+          description: "Telemetry data is being lost. Check memory limits and batch processor configuration."
+
+      # Fires when collector memory approaches the configured limit (500M default)
+      - alert: OtelCollectorHighMemory
+        expr: process_resident_memory_bytes{job="otel-collector"} / 1024 / 1024 > 400
+        for: 5m
+        labels:
+          severity: warning
+          component: otel-collector
+        annotations:
+          summary: "OTel Collector memory usage at {{ $value | printf \"%.0f\" }}MB (limit: 500MB)"
+          description: "The collector is approaching its memory limit. Consider increasing resources or reducing throughput."
+
+  # Application health — fires only when agents/apps push OTLP metrics
+  # These rules are safe to keep configured even without agents; they simply
+  # won't match any time series and will never fire until data exists.
+  - name: application_health
+    interval: 60s
+    rules:
+      # Fires when HTTP 5xx error rate exceeds 10% of total requests
+      - alert: HighRequestErrorRate
+        expr: >
+          (
+            sum by (service_name) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+            /
+            sum by (service_name) (rate(http_server_request_duration_seconds_count[5m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "HTTP 5xx error rate above 10% for {{ $labels.service_name }}"
+          description: "High server error rate detected. Check application logs for details."
+
+      # Fires when P99 HTTP request latency exceeds 5 seconds
+      - alert: HighRequestLatency
+        expr: >
+          histogram_quantile(0.99,
+            sum by (le, service_name) (rate(http_server_request_duration_seconds_bucket[5m]))
+          ) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "P99 latency above 5s for {{ $labels.service_name }}"
+          description: "Application response times are degraded. Check for downstream dependencies or resource contention."

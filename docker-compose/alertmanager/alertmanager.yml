@@ -1,0 +1,48 @@
+# Prometheus Alertmanager Configuration
+# Alert routing, grouping, and notification management
+#
+# By default alerts are received but not routed externally.
+# To forward alerts to the alert-manager UI running on the host:
+#   Replace 'default-receiver' webhook url with:
+#   http://host.docker.internal:5603/api/webhooks/alertmanager
+
+# Global configuration for all routes
+global:
+  # Time to wait before declaring an alert resolved if not updated
+  resolve_timeout: 5m
+
+# Alert routing tree — determines which receiver handles each alert
+route:
+  # Group alerts by name and job to reduce notification noise
+  group_by: ['alertname', 'job']
+  # Wait before sending initial notification for a new group
+  group_wait: 30s
+  # Wait before sending updates to an existing group
+  group_interval: 5m
+  # Wait before re-sending a notification for an already-firing alert
+  repeat_interval: 4h
+  # Default receiver for all alerts
+  receiver: 'default-receiver'
+
+  # Override routing for specific alert severities
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      # Shorter wait for critical alerts
+      group_wait: 10s
+      repeat_interval: 1h
+
+# Notification receivers — add webhook/email/slack config as needed
+receivers:
+  - name: 'default-receiver'
+  - name: 'critical-receiver'
+
+# Inhibition rules — suppress lower-severity alerts when higher ones fire
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    # Only inhibit if both alerts share the same name and instance
+    equal: ['alertname', 'instance']

@@ -18,6 +18,16 @@ global:
     cluster: 'observability-stack-dev'
     environment: 'development'
 
+# Route firing alerts to Prometheus Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+# Alerting rule files — evaluated at `evaluation_interval`
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
 # OTLP configuration for receiving metrics via OpenTelemetry Protocol
 otlp:
   # Keep resource attributes that identify the source
@@ -64,3 +74,12 @@ scrape_configs:
           component: 'telemetry-ingestion'
     # Scrape more frequently for real-time monitoring
     scrape_interval: 10s
+
+  # Scrape Alertmanager metrics
+  # Monitors alert delivery, notification failures, and silences
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels:
+          service: 'alertmanager'
+          component: 'alert-routing'
