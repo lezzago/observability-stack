@@ -102,9 +102,13 @@ services:
 
   # OpenSearch - Stores and indexes logs and traces for search and analysis
   opensearch:
-    image: ${OPENSEARCH_DOCKER_REPO}/opensearch:${OPENSEARCH_VERSION}
+    build:
+      context: ./docker-compose/opensearch
+      args:
+        OPENSEARCH_DOCKER_REPO: ${OPENSEARCH_DOCKER_REPO}
+        OPENSEARCH_VERSION: ${OPENSEARCH_VERSION}
+    image: opensearch-custom-sql:${OPENSEARCH_VERSION}
     container_name: opensearch
-    pull_policy: always
     environment:
       # Single-node cluster for development
       - cluster.name=observability-stack-cluster
@@ -146,32 +150,17 @@ services:
       retries: 30
     logging: *logging
 
-  # Prometheus - Time-series database for metrics storage
+  # Cortex - Prometheus-compatible metrics backend with Ruler API
+  # Replaces vanilla Prometheus to enable rule CRUD via the Cortex Ruler API
   prometheus:
-    image: prom/prometheus:${PROMETHEUS_VERSION}
+    image: cortexproject/cortex:v1.18.1
     container_name: prometheus
-    pull_policy: always
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      # Retention period from environment variable
-      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION}'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-      # Enable remote write receiver for OpenTelemetry Collector
-      - '--web.enable-remote-write-receiver'
-      - '--web.enable-lifecycle'
-      - '--web.route-prefix=/'
-      - '--enable-feature=exemplar-storage'
-      - '--web.enable-otlp-receiver'
+      - '-config.file=/etc/cortex/cortex.yaml'
     volumes:
-      - ./docker-compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      # Alerting rules evaluated at evaluation_interval
-      - ./docker-compose/prometheus/rules:/etc/prometheus/rules:ro
-      # Persist metrics data across container restarts
-      - prometheus-data:/prometheus
+      - ./docker-compose/cortex/cortex.yaml:/etc/cortex/cortex.yaml:ro
+      - prometheus-data:/data
     ports:
-      # Web UI and API endpoint
       - "${PROMETHEUS_PORT}:9090"
     networks:
       - observability-stack-network
@@ -180,6 +169,12 @@ services:
       resources:
         limits:
           memory: ${PROMETHEUS_MEMORY_LIMIT}
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "-q", "http://localhost:9090/ready"]
+      start_period: 30s
+      interval: 5s
+      timeout: 5s
+      retries: 20
     logging: *logging
 
   # Prometheus Alertmanager - Alert routing, grouping, deduplication, and silencing
@@ -243,6 +238,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+    logging: *logging
+
+  # Cortex Rules Initialization - Loads alerting/recording rules via the Ruler API
+  # Base stack rules (stack_health, otel_collector_health, application_health) are
+  # always loaded.  The otel-demo compose override adds otel-demo rules.
+  cortex-rules-init:
+    image: python:3.11-alpine
+    container_name: cortex-rules-init
+    command: sh -c "pip install requests pyyaml && python /init.py"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    volumes:
+      - ./docker-compose/cortex/init-cortex-rules.py:/init.py
+      - ./docker-compose/prometheus/rules:/rules/stack:ro
+    networks:
+      - observability-stack-network
+    restart: "no"
     logging: *logging
 
   # OpenSearch Dashboards Initialization - Creates workspace and index patterns

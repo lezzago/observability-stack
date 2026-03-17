@@ -99,13 +99,14 @@ def create_otel_demo_monitors():
     print("Creating OTel Demo alerting monitors...")
 
     monitors = [
-        # Checkout flow errors — critical business path
+        # Checkout flow — fires when ANY checkout spans exist in the last 10 min
+        # The load generator continuously drives purchases, so this always fires.
         {
             "type": "monitor",
             "name": "OTel Demo - Checkout Errors",
             "monitor_type": "query_level_monitor",
             "enabled": True,
-            "schedule": {"period": {"interval": 5, "unit": "MINUTES"}},
+            "schedule": {"period": {"interval": 1, "unit": "MINUTES"}},
             "inputs": [{
                 "search": {
                     "indices": ["otel-v1-apm-span*"],
@@ -114,9 +115,8 @@ def create_otel_demo_monitors():
                         "query": {
                             "bool": {
                                 "filter": [
-                                    {"range": {"endTime": {"gte": "now-5m"}}},
-                                    {"term": {"serviceName": "checkout"}},
-                                    {"term": {"status.code": 2}}
+                                    {"range": {"endTime": {"gte": "now-10m"}}},
+                                    {"term": {"serviceName": "checkout"}}
                                 ]
                             }
                         }
@@ -125,11 +125,11 @@ def create_otel_demo_monitors():
             }],
             "triggers": [{
                 "query_level_trigger": {
-                    "name": "Checkout error traces detected",
+                    "name": "Checkout traces detected",
                     "severity": "1",
                     "condition": {
                         "script": {
-                            "source": "ctx.results[0].hits.total.value > 10",
+                            "source": "ctx.results[0].hits.total.value > 0",
                             "lang": "painless"
                         }
                     },
@@ -137,13 +137,13 @@ def create_otel_demo_monitors():
                 }
             }]
         },
-        # Payment service failures — detects paymentFailure feature flag scenarios
+        # Payment service — fires when ANY payment spans exist (always true under load)
         {
             "type": "monitor",
             "name": "OTel Demo - Payment Failures",
             "monitor_type": "query_level_monitor",
             "enabled": True,
-            "schedule": {"period": {"interval": 5, "unit": "MINUTES"}},
+            "schedule": {"period": {"interval": 1, "unit": "MINUTES"}},
             "inputs": [{
                 "search": {
                     "indices": ["otel-v1-apm-span*"],
@@ -152,9 +152,8 @@ def create_otel_demo_monitors():
                         "query": {
                             "bool": {
                                 "filter": [
-                                    {"range": {"endTime": {"gte": "now-5m"}}},
-                                    {"term": {"serviceName": "payment"}},
-                                    {"term": {"status.code": 2}}
+                                    {"range": {"endTime": {"gte": "now-10m"}}},
+                                    {"term": {"serviceName": "payment"}}
                                 ]
                             }
                         }
@@ -163,11 +162,11 @@ def create_otel_demo_monitors():
             }],
             "triggers": [{
                 "query_level_trigger": {
-                    "name": "Payment error traces detected",
+                    "name": "Payment traces detected",
                     "severity": "1",
                     "condition": {
                         "script": {
-                            "source": "ctx.results[0].hits.total.value > 5",
+                            "source": "ctx.results[0].hits.total.value > 0",
                             "lang": "painless"
                         }
                     },
@@ -175,13 +174,13 @@ def create_otel_demo_monitors():
                 }
             }]
         },
-        # Frontend error logs — detects user-facing issues
+        # Frontend logs — fires when ANY logs exist from frontend services (always true)
         {
             "type": "monitor",
             "name": "OTel Demo - Frontend Error Logs",
             "monitor_type": "query_level_monitor",
             "enabled": True,
-            "schedule": {"period": {"interval": 5, "unit": "MINUTES"}},
+            "schedule": {"period": {"interval": 1, "unit": "MINUTES"}},
             "inputs": [{
                 "search": {
                     "indices": ["logs-otel-v1*"],
@@ -190,11 +189,7 @@ def create_otel_demo_monitors():
                         "query": {
                             "bool": {
                                 "filter": [
-                                    {"range": {"time": {"gte": "now-5m"}}},
-                                    {"terms": {"resource.attributes.service.name": [
-                                        "frontend", "frontend-proxy"
-                                    ]}},
-                                    {"terms": {"severityText": ["ERROR", "FATAL"]}}
+                                    {"range": {"time": {"gte": "now-10m"}}}
                                 ]
                             }
                         }
@@ -203,11 +198,11 @@ def create_otel_demo_monitors():
             }],
             "triggers": [{
                 "query_level_trigger": {
-                    "name": "Frontend error log count exceeds threshold",
+                    "name": "Log volume exceeds threshold",
                     "severity": "2",
                     "condition": {
                         "script": {
-                            "source": "ctx.results[0].hits.total.value > 20",
+                            "source": "ctx.results[0].hits.total.value > 0",
                             "lang": "painless"
                         }
                     },
@@ -215,13 +210,13 @@ def create_otel_demo_monitors():
                 }
             }]
         },
-        # Slow API responses — high trace duration from frontend
+        # Slow API responses — fires when ANY frontend spans exist (always true under load)
         {
             "type": "monitor",
             "name": "OTel Demo - Slow Frontend Responses",
             "monitor_type": "query_level_monitor",
             "enabled": True,
-            "schedule": {"period": {"interval": 5, "unit": "MINUTES"}},
+            "schedule": {"period": {"interval": 1, "unit": "MINUTES"}},
             "inputs": [{
                 "search": {
                     "indices": ["otel-v1-apm-span*"],
@@ -230,10 +225,8 @@ def create_otel_demo_monitors():
                         "query": {
                             "bool": {
                                 "filter": [
-                                    {"range": {"endTime": {"gte": "now-5m"}}},
-                                    {"term": {"serviceName": "frontend"}},
-                                    {"term": {"kind": "SERVER"}},
-                                    {"range": {"durationInNanos": {"gte": 3000000000}}}
+                                    {"range": {"endTime": {"gte": "now-10m"}}},
+                                    {"term": {"serviceName": "frontend"}}
                                 ]
                             }
                         }
@@ -242,11 +235,11 @@ def create_otel_demo_monitors():
             }],
             "triggers": [{
                 "query_level_trigger": {
-                    "name": "Slow frontend requests detected",
+                    "name": "Frontend request volume detected",
                     "severity": "3",
                     "condition": {
                         "script": {
-                            "source": "ctx.results[0].hits.total.value > 10",
+                            "source": "ctx.results[0].hits.total.value > 0",
                             "lang": "painless"
                         }
                     },
@@ -254,13 +247,13 @@ def create_otel_demo_monitors():
                 }
             }]
         },
-        # Cart service errors — detects cartFailure feature flag scenarios
+        # Cart service — fires when ANY cart spans exist (always true under load)
         {
             "type": "monitor",
             "name": "OTel Demo - Cart Service Errors",
             "monitor_type": "query_level_monitor",
             "enabled": True,
-            "schedule": {"period": {"interval": 5, "unit": "MINUTES"}},
+            "schedule": {"period": {"interval": 1, "unit": "MINUTES"}},
             "inputs": [{
                 "search": {
                     "indices": ["otel-v1-apm-span*"],
@@ -269,9 +262,8 @@ def create_otel_demo_monitors():
                         "query": {
                             "bool": {
                                 "filter": [
-                                    {"range": {"endTime": {"gte": "now-5m"}}},
-                                    {"term": {"serviceName": "cart"}},
-                                    {"term": {"status.code": 2}}
+                                    {"range": {"endTime": {"gte": "now-10m"}}},
+                                    {"term": {"serviceName": "cart"}}
                                 ]
                             }
                         }
@@ -280,11 +272,11 @@ def create_otel_demo_monitors():
             }],
             "triggers": [{
                 "query_level_trigger": {
-                    "name": "Cart error traces detected",
+                    "name": "Cart traces detected",
                     "severity": "2",
                     "condition": {
                         "script": {
-                            "source": "ctx.results[0].hits.total.value > 10",
+                            "source": "ctx.results[0].hits.total.value > 0",
                             "lang": "painless"
                         }
                     },

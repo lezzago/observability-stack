@@ -1,10 +1,15 @@
 # Prometheus Alertmanager Configuration
 # Alert routing, grouping, and notification management
 #
-# By default alerts are received but not routed externally.
-# To forward alerts to the alert-manager UI running on the host:
-#   Replace 'default-receiver' webhook url with:
-#   http://host.docker.internal:5603/api/webhooks/alertmanager
+# Alerts from Cortex ruler are routed here for grouping, deduplication, and delivery.
+# All receivers index alerts into OpenSearch for persistent history and search.
+#
+# The OpenSearch index "alertmanager-alerts" is created automatically on first write.
+# Browse alerts in OpenSearch Dashboards or query via:
+#   curl -sk -u admin:$OPENSEARCH_PASSWORD https://localhost:9200/alertmanager-alerts/_search?pretty
+#
+# To add Slack, PagerDuty, email, or other integrations see:
+#   https://prometheus.io/docs/alerting/latest/configuration/#receiver
 
 # Global configuration for all routes
 global:
@@ -12,9 +17,10 @@ global:
   resolve_timeout: 5m
 
 # Alert routing tree — determines which receiver handles each alert
+# Routes are evaluated top-down; the first match wins.
 route:
-  # Group alerts by name and job to reduce notification noise
-  group_by: ['alertname', 'job']
+  # Group alerts by name and service to reduce notification noise
+  group_by: ['alertname', 'service_name']
   # Wait before sending initial notification for a new group
   group_wait: 30s
   # Wait before sending updates to an existing group
@@ -22,27 +28,86 @@ route:
   # Wait before re-sending a notification for an already-firing alert
   repeat_interval: 4h
   # Default receiver for all alerts
-  receiver: 'default-receiver'
+  receiver: 'opensearch-webhook'
 
-  # Override routing for specific alert severities
   routes:
+    # ── OTel Demo routes (most specific first) ──────────────────────────
+    # Critical demo alerts: checkout pipeline failures, payment errors, frontend 5xx
+    - match:
+        component: otel-demo
+        severity: critical
+      receiver: 'otel-demo-critical'
+      # Fast notification for user-facing breakage
+      group_by: ['alertname', 'service']
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 30m
+
+    # Warning demo alerts: latency degradation, cart errors, high CPU
+    - match:
+        component: otel-demo
+        severity: warning
+      receiver: 'otel-demo-warning'
+      group_by: ['alertname', 'service']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 2h
+
+    # ── Stack infrastructure routes ─────────────────────────────────────
+    # Critical infra: scrape targets down, collector export failures
     - match:
         severity: critical
-      receiver: 'critical-receiver'
-      # Shorter wait for critical alerts
+      receiver: 'critical-opensearch-webhook'
       group_wait: 10s
       repeat_interval: 1h
 
-# Notification receivers — add webhook/email/slack config as needed
+# Notification receivers
+# Each receiver indexes into the same OpenSearch index; the alert payload
+# carries all labels so you can filter by component/service/severity there.
+# Credentials must match OPENSEARCH_USER / OPENSEARCH_PASSWORD in .env
 receivers:
-  - name: 'default-receiver'
-  - name: 'critical-receiver'
+  # Default — catch-all for any unmatched alerts
+  - name: 'opensearch-webhook'
+    webhook_configs:
+      - &opensearch-webhook
+        url: 'https://opensearch:9200/alertmanager-alerts/_doc'
+        http_config:
+          basic_auth:
+            username: admin
+            password: MyStr0ngP@ssw0rd2024
+          tls_config:
+            insecure_skip_verify: true
+        send_resolved: true
+
+  # Stack infrastructure critical alerts
+  - name: 'critical-opensearch-webhook'
+    webhook_configs:
+      - *opensearch-webhook
+
+  # OTel Demo critical — checkout/payment/frontend failures
+  - name: 'otel-demo-critical'
+    webhook_configs:
+      - *opensearch-webhook
+
+  # OTel Demo warning — latency, cart, ad-service issues
+  - name: 'otel-demo-warning'
+    webhook_configs:
+      - *opensearch-webhook
 
 # Inhibition rules — suppress lower-severity alerts when higher ones fire
 inhibit_rules:
+  # Suppress otel-demo warnings when a critical alert fires for the same service
   - source_match:
-      severity: 'critical'
+      component: otel-demo
+      severity: critical
     target_match:
-      severity: 'warning'
-    # Only inhibit if both alerts share the same name and instance
-    equal: ['alertname', 'instance']
+      component: otel-demo
+      severity: warning
+    equal: ['service']
+
+  # Suppress stack warnings when a critical alert fires for the same alertname
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ['alertname', 'service_name']

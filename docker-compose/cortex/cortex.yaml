@@ -1,0 +1,68 @@
+# Cortex - Single-process mode for local development
+# Provides Prometheus-compatible query API + Ruler API for rule CRUD
+
+target: all
+
+# Disable multi-tenancy for local dev (no X-Scope-OrgID header required)
+auth_enabled: false
+
+server:
+  # Listen on 9090 to match the standard Prometheus port convention
+  # This ensures PROMETHEUS_PORT in .env works for both host and internal Docker networking
+  http_listen_port: 9090
+  grpc_listen_port: 9095
+
+distributor:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+ingester:
+  lifecycler:
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+    address: 127.0.0.1
+    final_sleep: 0s
+
+storage:
+  engine: blocks
+
+blocks_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/blocks
+  tsdb:
+    dir: /data/tsdb
+  bucket_store:
+    sync_dir: /data/tsdb-sync
+
+ruler:
+  enable_api: true
+  # Route firing alerts to Alertmanager for routing, grouping, and notification
+  alertmanager_url: http://alertmanager:9093
+  ring:
+    kvstore:
+      store: inmemory
+    instance_addr: 127.0.0.1
+
+# Use S3-compatible storage via filesystem backend for ruler CRUD support
+# The 'local' backend is read-only; 'filesystem' supports full CRUD
+ruler_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/ruler-storage
+
+compactor:
+  data_dir: /data/compactor
+  sharding_ring:
+    kvstore:
+      store: inmemory
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+    kvstore:
+      store: inmemory

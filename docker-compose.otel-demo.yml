@@ -732,11 +732,11 @@ services:
   # ******************
   # Observability Overrides & Init
   # ******************
-  # Prometheus override - Mounts otel-demo specific alerting rules into a separate directory
-  # Compose merges this with the prometheus service from docker-compose.yml
-  prometheus:
+  # Cortex rules override — adds otel-demo rule files so the init container
+  # (defined in docker-compose.yml) loads them into Cortex alongside base rules.
+  cortex-rules-init:
     volumes:
-      - ./docker-compose/prometheus/rules-otel-demo:/etc/prometheus/rules-otel-demo:ro
+      - ./docker-compose/prometheus/rules-otel-demo:/rules/otel_demo:ro
 
   # OTel Demo Monitors Init - Creates OpenSearch alerting monitors for demo services
   otel-demo-monitors-init:
