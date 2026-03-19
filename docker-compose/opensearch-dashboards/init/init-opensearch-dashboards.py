@@ -11,6 +11,8 @@ USERNAME = os.getenv("OPENSEARCH_USER", "admin")
 PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "My_password_123!@#")
 PROMETHEUS_HOST = os.getenv("PROMETHEUS_HOST", "prometheus")
 PROMETHEUS_PORT = os.getenv("PROMETHEUS_PORT", "9090")
+ALERTMANAGER_HOST = os.getenv("ALERTMANAGER_HOST", "alertmanager")
+ALERTMANAGER_PORT = os.getenv("ALERTMANAGER_PORT", "9093")
 
 def wait_for_dashboards():
     """Wait for OpenSearch Dashboards to be ready"""
@@ -225,6 +227,7 @@ def create_prometheus_datasource(workspace_id):
     print("🔧 Creating Prometheus datasource...")
 
     prometheus_endpoint = f"http://{PROMETHEUS_HOST}:{PROMETHEUS_PORT}"
+    alertmanager_endpoint = f"http://{ALERTMANAGER_HOST}:{ALERTMANAGER_PORT}"
 
     payload = {
         "name": datasource_name,
@@ -235,6 +238,7 @@ def create_prometheus_datasource(workspace_id):
             "prometheus.auth.type": "basicauth",
             "prometheus.auth.username": "",
             "prometheus.auth.password": "",
+            "alertmanager.uri": alertmanager_endpoint,
         },
     }
 
