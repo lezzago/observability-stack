@@ -729,4 +729,28 @@ services:
     <<: *network
     logging: *logging
 
+  # ******************
+  # Observability Overrides & Init
+  # ******************
+  # Cortex rules override — adds otel-demo rule files so the init container
+  # (defined in docker-compose.yml) loads them into Cortex alongside base rules.
+  cortex-rules-init:
+    volumes:
+      - ./docker-compose/prometheus/rules-otel-demo:/rules/otel_demo:ro
 
+  # OTel Demo Monitors Init - Creates OpenSearch alerting monitors for demo services
+  otel-demo-monitors-init:
+    image: python:3.11-alpine
+    container_name: otel-demo-monitors-init
+    command: sh -c "pip install requests && python /init.py"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    environment:
+      - OPENSEARCH_USER=${OPENSEARCH_USER}
+      - OPENSEARCH_PASSWORD=${OPENSEARCH_PASSWORD}
+    volumes:
+      - ./docker-compose/opentelemetry-demo/init-otel-demo-monitors.py:/init.py
+    <<: *network
+    restart: "no"
+    logging: *logging

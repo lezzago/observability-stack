@@ -95,9 +95,9 @@ exporters:
       insecure: true
       insecure_skip_verify: true
 
-  # Prometheus OTLP HTTP exporter sends metrics to Prometheus
-  otlphttp/prometheus:
-    endpoint: "http://prometheus:9090/api/v1/otlp"
+  # Prometheus remote write exporter sends metrics to Cortex
+  prometheusremotewrite/cortex:
+    endpoint: "http://prometheus:9090/api/v1/push"
     tls:
       insecure: true
 
@@ -110,11 +110,11 @@ service:
       processors: [resourcedetection, memory_limiter, transform, batch]
       exporters: [otlp/opensearch, debug]
 
-    # Metrics pipeline: OTLP -> processing -> Prometheus
+    # Metrics pipeline: OTLP -> processing -> Cortex
     metrics:
       receivers: [otlp]
       processors: [resourcedetection, memory_limiter, batch]
-      exporters: [otlphttp/prometheus, debug]
+      exporters: [prometheusremotewrite/cortex, debug]
 
     # Logs pipeline: OTLP -> processing -> Data Prepper
     logs:

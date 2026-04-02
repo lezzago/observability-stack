@@ -18,6 +18,19 @@ global:
     cluster: 'observability-stack-dev'
     environment: 'development'
 
+# Route firing alerts to Prometheus Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+# Alerting rule files — evaluated at `evaluation_interval`
+# Core rules are always loaded; otel-demo rules are only present when
+# the otel-demo compose file mounts the rules-otel-demo directory
+rule_files:
+  - /etc/prometheus/rules/*.yml
+  - /etc/prometheus/rules-otel-demo/*.yml
+
 # OTLP configuration for receiving metrics via OpenTelemetry Protocol
 otlp:
   # Keep resource attributes that identify the source
@@ -74,6 +87,15 @@ scrape_configs:
           service: 'opensearch'
           component: 'search-storage'
     scrape_interval: 30s
+
+  # Scrape Alertmanager metrics
+  # Monitors alert delivery, notification failures, and silences
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels:
+          service: 'alertmanager'
+          component: 'alert-routing'
 
   # Scrape Data Prepper metrics
   # Monitors pipeline throughput, bulk errors, buffer usage

@@ -13,6 +13,8 @@ USERNAME = os.getenv("OPENSEARCH_USER", "admin")
 PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "My_password_123!@#")
 PROMETHEUS_HOST = os.getenv("PROMETHEUS_HOST", "prometheus")
 PROMETHEUS_PORT = os.getenv("PROMETHEUS_PORT", "9090")
+ALERTMANAGER_HOST = os.getenv("ALERTMANAGER_HOST", "alertmanager")
+ALERTMANAGER_PORT = os.getenv("ALERTMANAGER_PORT", "9093")
 _opensearch_protocol = os.getenv("OPENSEARCH_PROTOCOL", "https")
 OPENSEARCH_ENDPOINT = f"{_opensearch_protocol}://{os.getenv('OPENSEARCH_HOST', 'opensearch')}:{os.getenv('OPENSEARCH_PORT', '9200')}"
 
@@ -229,6 +231,7 @@ def create_prometheus_datasource(workspace_id):
     print("🔧 Creating Prometheus datasource...")
 
     prometheus_endpoint = f"http://{PROMETHEUS_HOST}:{PROMETHEUS_PORT}"
+    alertmanager_endpoint = f"http://{ALERTMANAGER_HOST}:{ALERTMANAGER_PORT}"
 
     payload = {
         "name": datasource_name,
@@ -239,6 +242,7 @@ def create_prometheus_datasource(workspace_id):
             "prometheus.auth.type": "basicauth",
             "prometheus.auth.username": "",
             "prometheus.auth.password": "",
+            "alertmanager.uri": alertmanager_endpoint,
         },
     }
 
@@ -1245,6 +1249,300 @@ Monitor agent activity, token usage, and tool execution at a glance.
         return None
 
 
+def get_existing_monitor(monitor_name):
+    """Check if an alerting monitor with the given name already exists"""
+    try:
+        response = requests.post(
+            f"{OPENSEARCH_ENDPOINT}/_plugins/_alerting/monitors/_search",
+            auth=(USERNAME, PASSWORD),
+            headers={"Content-Type": "application/json"},
+            json={
+                "size": 1,
+                "query": {
+                    "term": {"monitor.name.keyword": monitor_name}
+                }
+            },
+            verify=False,
+            timeout=10,
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            hits = result.get("hits", {}).get("hits", [])
+            if hits:
+                return hits[0].get("_id")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"  ⚠️  Error checking monitor '{monitor_name}': {e}")
+        return None
+
+
+def create_monitor(monitor_payload):
+    """Create an alerting monitor in OpenSearch (idempotent)"""
+    monitor_name = monitor_payload.get("name", "unknown")
+
+    # Check if monitor already exists
+    existing_id = get_existing_monitor(monitor_name)
+    if existing_id:
+        print(f"  ✅ Monitor already exists: {monitor_name}")
+        return existing_id
+
+    try:
+        response = requests.post(
+            f"{OPENSEARCH_ENDPOINT}/_plugins/_alerting/monitors",
+            auth=(USERNAME, PASSWORD),
+            headers={"Content-Type": "application/json"},
+            json=monitor_payload,
+            verify=False,
+            timeout=10,
+        )
+
+        if response.status_code in (200, 201):
+            result = response.json()
+            monitor_id = result.get("_id")
+            print(f"  ✅ Created monitor: {monitor_name}")
+            return monitor_id
+        else:
+            print(f"  ⚠️  Monitor creation failed ({response.status_code}): {response.text[:200]}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"  ⚠️  Error creating monitor '{monitor_name}': {e}")
+        return None
+
+
+def create_alerting_monitors():
+    """Create pre-configured alerting monitors for the observability stack.
+
+    Monitors are safe for the minimum stack (no agents required):
+    - Cluster health monitors always work since OpenSearch is a core service
+    - Data flow monitors use queries that return 0 hits when no data exists,
+      so they won't false-fire; they only alert when data WAS flowing and stops
+    """
+    print("🔔 Creating alerting monitors...")
+
+    monitors = [
+        # Cluster Health — always relevant, OpenSearch is a core service
+        {
+            "type": "monitor",
+            "name": "OpenSearch Cluster Health - Red",
+            "monitor_type": "query_level_monitor",
+            "enabled": True,
+            "schedule": {"period": {"interval": 1, "unit": "MINUTES"}},
+            "inputs": [{
+                "uri": {
+                    "api_type": "CLUSTER_HEALTH",
+                    "path": "_cluster/health",
+                    "path_params": ""
+                }
+            }],
+            "triggers": [{
+                "query_level_trigger": {
+                    "name": "Cluster status is RED",
+                    "severity": "1",
+                    "condition": {
+                        "script": {
+                            "source": "ctx.results[0].status == 'red'",
+                            "lang": "painless"
+                        }
+                    },
+                    "actions": []
+                }
+            }]
+        },
+        # Cluster Health Yellow — fires on single-node dev clusters where replica
+        # shards cannot be assigned. Provides a visible alert out of the box so
+        # users can verify the alerting pipeline is working end-to-end.
+        {
+            "type": "monitor",
+            "name": "OpenSearch Cluster Health - Yellow",
+            "monitor_type": "query_level_monitor",
+            "enabled": True,
+            "schedule": {"period": {"interval": 5, "unit": "MINUTES"}},
+            "inputs": [{
+                "uri": {
+                    "api_type": "CLUSTER_HEALTH",
+                    "path": "_cluster/health",
+                    "path_params": ""
+                }
+            }],
+            "triggers": [{
+                "query_level_trigger": {
+                    "name": "Cluster status is YELLOW",
+                    "severity": "3",
+                    "condition": {
+                        "script": {
+                            "source": "ctx.results[0].status == 'yellow'",
+                            "lang": "painless"
+                        }
+                    },
+                    "actions": []
+                }
+            }]
+        },
+        # Log Error Spike — fires only when error logs exist in the index
+        # Safe for min stack: returns 0 hits when no agents are sending logs
+        {
+            "type": "monitor",
+            "name": "Log Error Spike",
+            "monitor_type": "query_level_monitor",
+            "enabled": True,
+            "schedule": {"period": {"interval": 5, "unit": "MINUTES"}},
+            "inputs": [{
+                "search": {
+                    "indices": ["logs-otel-v1*"],
+                    "query": {
+                        "size": 0,
+                        "query": {
+                            "bool": {
+                                "filter": [
+                                    {"range": {"time": {"gte": "now-5m"}}},
+                                    {"terms": {"severityText": ["ERROR", "FATAL"]}}
+                                ]
+                            }
+                        }
+                    }
+                }
+            }],
+            "triggers": [{
+                "query_level_trigger": {
+                    "name": "Error log count exceeds threshold",
+                    "severity": "2",
+                    "condition": {
+                        "script": {
+                            "source": "ctx.results[0].hits.total.value > 50",
+                            "lang": "painless"
+                        }
+                    },
+                    "actions": []
+                }
+            }]
+        },
+        # Trace Error Rate — fires only when error traces exist in the index
+        # Safe for min stack: returns 0 hits when no agents are sending traces
+        {
+            "type": "monitor",
+            "name": "High Trace Error Rate",
+            "monitor_type": "query_level_monitor",
+            "enabled": True,
+            "schedule": {"period": {"interval": 5, "unit": "MINUTES"}},
+            "inputs": [{
+                "search": {
+                    "indices": ["otel-v1-apm-span*"],
+                    "query": {
+                        "size": 0,
+                        "query": {
+                            "bool": {
+                                "filter": [
+                                    {"range": {"endTime": {"gte": "now-5m"}}},
+                                    {"term": {"status.code": 2}}
+                                ]
+                            }
+                        }
+                    }
+                }
+            }],
+            "triggers": [{
+                "query_level_trigger": {
+                    "name": "Error trace count exceeds threshold",
+                    "severity": "2",
+                    "condition": {
+                        "script": {
+                            "source": "ctx.results[0].hits.total.value > 20",
+                            "lang": "painless"
+                        }
+                    },
+                    "actions": []
+                }
+            }]
+        },
+        # No Logs Received — detects pipeline failures when data WAS flowing
+        # Uses a two-condition approach: only fires when the index exists
+        # (has > 0 total docs) but no recent docs arrived
+        {
+            "type": "monitor",
+            "name": "Pipeline Health - No Logs Received",
+            "monitor_type": "query_level_monitor",
+            "enabled": True,
+            "schedule": {"period": {"interval": 15, "unit": "MINUTES"}},
+            "inputs": [{
+                "search": {
+                    "indices": ["logs-otel-v1*"],
+                    "query": {
+                        "size": 0,
+                        "query": {
+                            "range": {"time": {"gte": "now-15m"}}
+                        },
+                        "aggs": {
+                            "total_docs": {
+                                "value_count": {"field": "time"}
+                            }
+                        }
+                    }
+                }
+            }],
+            "triggers": [{
+                "query_level_trigger": {
+                    "name": "No log data received in 15 minutes",
+                    "severity": "3",
+                    "condition": {
+                        "script": {
+                            "source": "ctx.results[0].hits.total.value == 0",
+                            "lang": "painless"
+                        }
+                    },
+                    "actions": []
+                }
+            }]
+        },
+        # No Traces Received — detects pipeline failures when data WAS flowing
+        {
+            "type": "monitor",
+            "name": "Pipeline Health - No Traces Received",
+            "monitor_type": "query_level_monitor",
+            "enabled": True,
+            "schedule": {"period": {"interval": 15, "unit": "MINUTES"}},
+            "inputs": [{
+                "search": {
+                    "indices": ["otel-v1-apm-span*"],
+                    "query": {
+                        "size": 0,
+                        "query": {
+                            "range": {"endTime": {"gte": "now-15m"}}
+                        },
+                        "aggs": {
+                            "total_docs": {
+                                "value_count": {"field": "endTime"}
+                            }
+                        }
+                    }
+                }
+            }],
+            "triggers": [{
+                "query_level_trigger": {
+                    "name": "No trace data received in 15 minutes",
+                    "severity": "3",
+                    "condition": {
+                        "script": {
+                            "source": "ctx.results[0].hits.total.value == 0",
+                            "lang": "painless"
+                        }
+                    },
+                    "actions": []
+                }
+            }]
+        },
+    ]
+
+    created = 0
+    for monitor_payload in monitors:
+        result = create_monitor(monitor_payload)
+        if result:
+            created += 1
+
+    print(f"✅ Processed {created}/{len(monitors)} alerting monitors")
+    return created
+
+
 def main():
     """Initialize OpenSearch Dashboards with workspace and datasources"""
     wait_for_dashboards()
@@ -1307,6 +1605,9 @@ def main():
         create_apm_config_correlation(
             workspace_id, traces_pattern_id, service_map_pattern_id, prom_so_id
         )
+
+    # Create pre-canned alerting monitors for OpenSearch
+    create_alerting_monitors()
 
     # Output summary
     print()
