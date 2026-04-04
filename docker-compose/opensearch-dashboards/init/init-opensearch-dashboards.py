@@ -230,7 +230,10 @@ def create_prometheus_datasource(workspace_id):
 
     print("🔧 Creating Prometheus datasource...")
 
-    prometheus_endpoint = f"http://{PROMETHEUS_HOST}:{PROMETHEUS_PORT}"
+    # Cortex serves Prometheus-compatible APIs at /prometheus/ prefix.
+    # The SQL plugin's PrometheusClient appends /api/v1/query_range etc to this URI,
+    # so we need the /prometheus prefix for query execution to work.
+    prometheus_endpoint = f"http://{PROMETHEUS_HOST}:{PROMETHEUS_PORT}/prometheus"
     alertmanager_endpoint = f"http://{ALERTMANAGER_HOST}:{ALERTMANAGER_PORT}"
 
     payload = {
@@ -239,9 +242,6 @@ def create_prometheus_datasource(workspace_id):
         "connector": "prometheus",
         "properties": {
             "prometheus.uri": prometheus_endpoint,
-            "prometheus.auth.type": "basicauth",
-            "prometheus.auth.username": "",
-            "prometheus.auth.password": "",
             "alertmanager.uri": alertmanager_endpoint,
         },
     }
