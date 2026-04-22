@@ -754,3 +754,22 @@ services:
     <<: *network
     restart: "no"
     logging: *logging
+
+  # OTel Demo Silences Init - Validates Alertmanager silence API end-to-end by
+  # creating a small set of silences after rules have been ingested by Cortex.
+  # Silences auto-expire (endsAt is set 2h out) and are idempotent via the
+  # `comment` field.
+  otel-demo-silences-init:
+    image: python:3.11-alpine
+    container_name: otel-demo-silences-init
+    command: sh -c "pip install requests && python /init.py"
+    depends_on:
+      alertmanager:
+        condition: service_healthy
+      cortex-rules-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./docker-compose/opentelemetry-demo/init-otel-demo-silences.py:/init.py
+    <<: *network
+    restart: "no"
+    logging: *logging
