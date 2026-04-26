@@ -13,6 +13,10 @@ server:
   grpc_listen_port: 9095
 
 distributor:
+  # shard_by_all_labels is required when using max_global_series_per_user /
+  # per_metric limits (see limits block below). Safe to enable in single-
+  # binary mode.
+  shard_by_all_labels: true
   ring:
     instance_addr: 127.0.0.1
     kvstore:
@@ -66,3 +70,20 @@ store_gateway:
     replication_factor: 1
     kvstore:
       store: inmemory
+
+# Per-tenant ingestion limits. Defaults cap a single metric at 50k series,
+# which span-derived RED metrics blow through in minutes when a noisy
+# label (e.g. data-prepper's `randomKey`) is in play. The pipeline now
+# strips that key, but keep the ceiling generous so experimental
+# instrumentation doesn't silently start dropping samples.
+limits:
+  max_global_series_per_metric: 500000
+  max_global_series_per_user: 5000000
+  ingestion_rate: 100000
+  ingestion_burst_size: 200000
+  # DEV-ONLY: extend Cortex's default 10m grace/out-of-order windows so
+  # SLO bug-bash scenarios (e.g. S15) can remote-write up to 28 days of
+  # synthetic history via .cypress/fixtures/backfill/cortex_backfill.py
+  # without hitting "out of bounds". Never ship these values in prod.
+  creation_grace_period: 30d
+  out_of_order_time_window: 30d
