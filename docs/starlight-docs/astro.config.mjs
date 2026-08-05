@@ -3,6 +3,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
 import starlightLinksValidator from 'starlight-links-validator';
+import remarkGfm from 'remark-gfm';
 
 // Base and site are overridable via env for fork/preview deploys (e.g. project
 // GitHub Pages served under /<repo>/docs). Defaults target the production site.
@@ -13,6 +14,11 @@ const DOCS_BASE = process.env.DOCS_BASE || '/docs';
 export default defineConfig({
 	site: DOCS_SITE,
 	base: DOCS_BASE,
+	// GitHub-Flavored Markdown (tables, etc.). Applied explicitly so it also
+	// runs on .mdx pages — unlike .md, MDX does not enable GFM automatically.
+	markdown: {
+		remarkPlugins: [remarkGfm],
+	},
 	redirects: {
 		'/get-started': '/get-started/installation/',
 		'/sdks/python': '/send-data/ai-agents/python/',
