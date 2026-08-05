@@ -1,0 +1,43 @@
+---
+title: Explore Rules
+description: Browse the rules catalog — inspect definitions by type, status, and health, and view Prometheus routing
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The **Rules** tab of the [Unified Alerts View](/docs/alerting/unified-alerts/) is the catalog of everything that *can* fire: every alerting rule from both engines, plus the [anomaly detectors](/docs/anomaly-detection/) and [forecasters](/docs/forecasting/) you define elsewhere, side by side. Where the [Alerts tab](/docs/alerting/unified-alerts/explore-alerts/) shows what's firing now, the Rules tab shows what's defined.
+
+![The Rules tab listing OpenSearch and Prometheus rules together, with a Type column tagging each as Log, Metric, APM, or Cluster Metrics](/docs/images/alerting/unified-alerts-rules.png)
+
+## The rules catalog
+
+Each row shows a rule's name, status, severity, **type**, health, and owning data source. Filter by any facet to answer questions like "which log rules are unhealthy?" or "show me every critical metric rule on the Prometheus data source."
+
+The **Type** facet classifies each rule by the data it runs on — `Log`, `Metric`, `APM`, `Cluster Metrics`. See [Rule types](/docs/alerting/unified-alerts/#rule-types) for what each one means. To add a rule from here, use **Create alert rule** — see [Create Rules](/docs/alerting/unified-alerts/create-rules/).
+
+## Filters
+
+The left rail is shared with the [Alerts tab](/docs/alerting/unified-alerts/explore-alerts/#filters) and scopes the catalog the same way:
+
+- **Datasource** — the OpenSearch cluster, the Prometheus data source, or both.
+- **Severity** — `critical`, `high`, `medium`, and so on.
+- **Type** — `Log`, `Metric`, `APM`, `Cluster Metrics`.
+- **Labels** — filter to one service, exporter, or component in a click.
+
+## Routing
+
+The **Routing** tab is a read-only view of the **Prometheus Alertmanager** route tree: which receiver gets which alerts, the grouping and timing settings, and the configured receivers (webhook, Slack, email, PagerDuty). Routing is managed in the Alertmanager's own configuration.
+
+<Aside type="note" title="Routing applies to Prometheus alerts only">
+The routing tree belongs to the **Prometheus Alertmanager** and governs only **metric-rule** (Prometheus) alerts. It does not route OpenSearch log-rule, APM, or cluster-metrics alerts — those notify through the actions you attach to each rule's triggers, not through this tree. So the Routing tab reflects how Prometheus alerts are grouped and delivered, not every alert in the view.
+</Aside>
+
+## Empty catalog
+
+If the **Rules** tab is empty, there are no rules for the selected data sources yet. Confirm the right data sources are selected in the filter, or [create a rule](/docs/alerting/unified-alerts/create-rules/).
+
+## Related
+
+- [Explore Alerts](/docs/alerting/unified-alerts/explore-alerts/) — triage the alerts these rules produce.
+- [Create Rules](/docs/alerting/unified-alerts/create-rules/) — build log and metric rules.
+- [Unified Alerts View](/docs/alerting/unified-alerts/) — overview, rule types, and classic monitors.

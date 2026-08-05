@@ -1,0 +1,50 @@
+---
+title: Explore Alerts
+description: Triage firing alerts in the Alerts tab — filter, read the alert timeline, and scope data sources
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The **Alerts** tab of the [Unified Alerts View](/docs/alerting/unified-alerts/) is where responders triage what's firing right now. It lists every alert produced by your [rules](/docs/alerting/unified-alerts/create-rules/) across the selected data sources — OpenSearch log alerts and Prometheus metric alerts in one queue.
+
+![The Unified Alerts View Alerts tab, with the filter rail, severity-colored alert timeline, and the list of active alerts](/docs/images/alerting/unified-alerts-overview.png)
+
+## The alert list
+
+Each row shows an alert's severity, state, message, and how long it has been active. Sort or search to find a specific alert, and click through to the rule that produced it. To inspect or edit that rule, switch to the [Rules tab](/docs/alerting/unified-alerts/explore-rules/).
+
+## Alert timeline
+
+The histogram at the top of the tab buckets firing alerts over the selected time range (default **Last 24 hours**), colored by severity. Use it to spot bursts — a spike of `critical` bars usually lines up with an incident. Narrow the time range to zoom into a window of interest.
+
+## Filters
+
+The left rail scopes the list without editing any query:
+
+- **Datasource** — pick the OpenSearch cluster (its monitors), the Prometheus data source (its alerts), or both.
+- **Severity** — `critical`, `high`, `medium`, and so on, with live counts.
+- **State** — `active`, `muted`, and (for OpenSearch) `resolved`.
+- **Type** — `Log`, `Metric`, `APM`, `Cluster Metrics` (see [Rule types](/docs/alerting/unified-alerts/#rule-types)).
+- **Labels** — every label present on the current alert set (`alertname`, `component`, `service`, `job`, …) becomes a facet. This is where Prometheus label cardinality pays off: filter to one service, one exporter, or one component in a click.
+
+## Selecting data sources
+
+By default both the OpenSearch cluster and the Prometheus data source are selected. Untick one in the **Datasource** filter to scope to a single engine. The tab counts update immediately.
+
+<Aside type="note" title="Prometheus shows current alerts only">
+Prometheus does not retain historical alert instances the way OpenSearch does. When the Prometheus data source is selected you'll see a `Showing current alerts only` banner — the list reflects what is firing *right now*, evaluated every minute, rather than a historical record.
+</Aside>
+
+## Where alerts are routed
+
+Firing **metric-rule** (Prometheus) alerts are grouped and delivered through the Prometheus Alertmanager. You can inspect that route tree on the **Routing** tab — see [Explore Rules → Routing](/docs/alerting/unified-alerts/explore-rules/#routing). OpenSearch log-rule, APM, and cluster-metrics alerts instead notify through the actions attached to each rule's triggers.
+
+## Empty list
+
+If the **Alerts** tab is empty, nothing is currently firing for the selected data sources. Confirm the right data sources are selected in the filter, [create a rule](/docs/alerting/unified-alerts/create-rules/), or generate some load so alerts have something to fire on.
+
+## Related
+
+- [Explore Rules](/docs/alerting/unified-alerts/explore-rules/) — browse the rules catalog and inspect definitions.
+- [Create Rules](/docs/alerting/unified-alerts/create-rules/) — build the log and metric rules that populate this list.
+- [Unified Alerts View](/docs/alerting/unified-alerts/) — overview, rule types, and classic monitors.
