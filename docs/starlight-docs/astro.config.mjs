@@ -158,7 +158,6 @@ export default defineConfig({
 							items: [
 								{ label: 'Overview', link: '/alerting/unified-alerts/' },
 								{ label: 'Create Rules', link: '/alerting/unified-alerts/create-rules/' },
-								{ label: 'Notification Channels', link: '/alerting/unified-alerts/notifications/' },
 								{ label: 'Explore Alerts', link: '/alerting/unified-alerts/explore-alerts/' },
 								{ label: 'Explore Rules', link: '/alerting/unified-alerts/explore-rules/' },
 							],
@@ -172,7 +171,8 @@ export default defineConfig({
 								{ label: 'Explore an SLO', link: '/slo/detail/' },
 							],
 						},
-						{ label: 'Anomaly Detection', link: '/anomaly-detection/' },
+						{ label: 'Notifications', link: '/alerting/notifications/' },
+							{ label: 'Anomaly Detection', link: '/anomaly-detection/' },
 						{ label: 'Forecasting', link: '/forecasting/' },
 					],
 				},
@@ -284,6 +284,7 @@ export default defineConfig({
 					label: 'Agent Evals',
 					collapsed: true,
 					items: [
+						{ label: 'Overview', link: '/agent-evals/' },
 						{ label: 'Evaluation & Scoring', link: '/agent-evals/evaluation/' },
 						{ label: 'Evaluation Integrations', link: '/agent-evals/evaluation-integrations/' },
 					],

@@ -35,7 +35,7 @@ Log rules are OpenSearch Alerting monitors under the hood, but you no longer han
 
 4. **Set the schedule** — how often the rule runs (for example, every `1` minute).
 
-5. **Add a trigger** — a name, severity, and condition (see [Trigger conditions](#trigger-conditions)). Optionally add [notification actions](/docs/alerting/unified-alerts/notifications/#log-rule-notifications-trigger-actions) to send the alert to Slack, email, or a webhook.
+5. **Add a trigger** — a name, severity, and condition (see [Trigger conditions](#trigger-conditions)). Optionally add [notification actions](/docs/alerting/notifications/#opensearch-rules--notification-channels) to send the alert to Slack, email, or a webhook.
 
 6. **Save & enable.** The rule appears in the **Rules** catalog tagged **Log**, and firing alerts show up in the **Alerts** tab.
 
@@ -109,11 +109,11 @@ A **metric rule** alerts on Prometheus time series. You write a **PromQL** expre
 
 </Steps>
 
-Metric-rule alerts are delivered through the Prometheus Alertmanager — set up where they go in [Notification Channels](/docs/alerting/unified-alerts/notifications/#metric-rule-notifications-alertmanager), and view the resulting [routing tree](/docs/alerting/unified-alerts/explore-rules/#routing). Because [SLOs](/docs/slo/) deploy their burn-rate alerts as Prometheus rules, SLO breaches show up here as **Metric** rules too.
+Metric-rule alerts are delivered through the Prometheus Alertmanager — set up where they go in [Notifications](/docs/alerting/notifications/#prometheus-rules--alertmanager-receivers), and view the resulting [routing tree](/docs/alerting/unified-alerts/explore-rules/#routing). Because [SLOs](/docs/slo/) deploy their burn-rate alerts as Prometheus rules, SLO breaches show up here as **Metric** rules too.
 
 ## Related
 
-- [Notification Channels](/docs/alerting/unified-alerts/notifications/) — route firing alerts to Slack, email, PagerDuty, and webhooks.
+- [Notifications](/docs/alerting/notifications/) — route firing alerts to Slack, email, PagerDuty, and webhooks.
 - [Unified Alerts View](/docs/alerting/unified-alerts/) — overview, rule types, and classic monitors.
 - [Explore Alerts](/docs/alerting/unified-alerts/explore-alerts/) — triage the alerts your rules produce.
 - [Explore Rules](/docs/alerting/unified-alerts/explore-rules/) — browse the rules catalog and view routing.

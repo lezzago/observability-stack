@@ -17,7 +17,7 @@ Each row shows an alert's severity, state, message, and how long it has been act
 Individual alerts aren't muted from this list. To stop an alert:
 
 - **Disable the rule** ([Rules tab](/docs/alerting/unified-alerts/explore-rules/#inspect-and-manage-a-rule)) to stop it evaluating entirely, or
-- add an Alertmanager **silence** (at `http://localhost:9093` or via `amtool silence add`) to keep a metric rule running but suppress its notifications for a window — see [Notification Channels](/docs/alerting/unified-alerts/notifications/#metric-rule-notifications-alertmanager).
+- add an Alertmanager **silence** (at `http://localhost:9093` or via `amtool silence add`) to keep a metric rule running but suppress its notifications for a window — see [Notifications](/docs/alerting/notifications/#prometheus-rules--alertmanager-receivers).
 
 The `muted` state you see in the **State** filter reflects alerts suppressed this way.
 </Aside>
@@ -63,11 +63,11 @@ If a rule exists and is enabled but never produces an alert, work through this c
 5. **Right time window?** Log-rule queries are bounded by the selected **time field**; a wrong or empty time field means no matching documents.
 6. **Right data source selected?** Confirm the alert's data source isn't filtered out of this view.
 
-If the rule *fires* but no notification arrives, the rule is working and the problem is delivery — see [Notification Channels → Verify delivery](/docs/alerting/unified-alerts/notifications/#verify-delivery).
+If the rule *fires* but no notification arrives, the rule is working and the problem is delivery — see [Notifications → Verify delivery](/docs/alerting/notifications/#verify-delivery).
 
 ## Related
 
 - [Explore Rules](/docs/alerting/unified-alerts/explore-rules/) — browse the rules catalog and inspect definitions.
 - [Create Rules](/docs/alerting/unified-alerts/create-rules/) — build the log and metric rules that populate this list.
-- [Notification Channels](/docs/alerting/unified-alerts/notifications/) — route firing alerts to Slack, email, PagerDuty, and webhooks.
+- [Notifications](/docs/alerting/notifications/) — route firing alerts to Slack, email, PagerDuty, and webhooks.
 - [Unified Alerts View](/docs/alerting/unified-alerts/) — overview, rule types, and classic monitors.
