@@ -1,0 +1,105 @@
+name: Deploy Docs to Fork GitHub Pages
+
+# Fork-only preview deploy. Publishes the docs to this fork's project Pages
+# site at https://<owner>.github.io/<repo>/docs/ so changes can be shared for
+# review before opening an upstream PR.
+#
+# It does NOT touch the source: all links stay root-absolute (/docs/...) so the
+# link validator and any upstream PR remain clean. A post-build step rewrites the
+# built dist/ output to add the /<repo> path prefix that project Pages requires,
+# and drops the upstream custom-domain CNAME (a fork cannot claim it).
+#
+# Guarded to never run on the upstream opensearch-project repo.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [docs-preview]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-fork"
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: ./docs
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    if: github.repository != 'opensearch-project/observability-stack'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Starlight dependencies
+        run: npm ci
+        working-directory: ./docs/starlight-docs
+
+      - name: Build main site
+        run: npm run build:main
+
+      - name: Build Starlight docs
+        run: npm run build
+        working-directory: ./docs/starlight-docs
+
+      - name: Merge Starlight docs into main dist
+        run: |
+          mkdir -p dist/docs
+          cp -r starlight-docs/dist/* dist/docs/
+
+      - name: Rewrite links for fork project-site subpath
+        run: |
+          # Project Pages serve under /<repo>/. Add that prefix to every
+          # root-absolute link and asset reference in the built output.
+          PREFIX="/${GITHUB_REPOSITORY#*/}"
+          echo "Rewriting root-absolute paths with prefix: ${PREFIX}"
+          find dist \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.xml" \) -type f -print0 |
+          while IFS= read -r -d '' f; do
+            sed -i -E \
+              -e "s#(href=\")/(docs/|_astro/|images/|pagefind/|icons/|sdks/|get-started/|send-data/|deploy/|apm/|dashboards/|ppl/|investigate/|alerting/|slo/|anomaly-detection/|forecasting/|ai-observability/|agent-health/|mcp/|claude-code/)#\1${PREFIX}/\2#g" \
+              -e "s#(src=\")/(docs/|_astro/|images/|pagefind/|icons/|opensearch-logo)#\1${PREFIX}/\2#g" \
+              -e "s#(href=\")/(favicon|opensearch-logo|sitemap)#\1${PREFIX}/\2#g" \
+              -e "s#href=\"/\"#href=\"${PREFIX}/\"#g" \
+              "$f"
+          done
+
+      - name: Drop upstream custom-domain CNAME
+        run: rm -f dist/CNAME
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs/dist
+
+  deploy:
+    name: Deploy
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.repository != 'opensearch-project/observability-stack'
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
