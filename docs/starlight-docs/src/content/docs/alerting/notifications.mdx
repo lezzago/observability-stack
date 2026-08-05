@@ -44,7 +44,7 @@ docker-compose/alertmanager/alertmanager.template.yml
 It defines a routing tree, a default `opensearch-webhook` receiver that indexes alerts into OpenSearch, and **placeholder receivers for Slack, email, and PagerDuty** that you fill in with real credentials. Credentials for the OpenSearch receiver are injected from `.env` (`OPENSEARCH_USER` / `OPENSEARCH_PASSWORD`) at container startup.
 
 <Aside type="tip" title="View the live routing in Dashboards">
-You don't have to read the YAML to see how alerts are currently routed. The **Routing** tab of the [Unified Alerts View](/docs/alerting/unified-alerts/explore-rules/#routing) renders the active Alertmanager definition for the Prometheus data source — the route tree, grouping and timing, and every configured receiver — as a read-only view. Edit the template file to change it; use the Routing tab to confirm what's in effect.
+You don't have to read the YAML to see how alerts are currently routed. The **Routing** tab of the [Unified Alerts View](/docs/alerting/unified-alerts/routing/) renders the active Alertmanager definition for the Prometheus data source — the route tree, grouping and timing, and every configured receiver — as a read-only view. Edit the template file to change it; use the Routing tab to confirm what's in effect.
 </Aside>
 
 ### Add a Slack receiver
@@ -145,5 +145,5 @@ If nothing arrives, see the [alert troubleshooting checklist](/docs/alerting/uni
 ## Related
 
 - [Unified Alerts View](/docs/alerting/unified-alerts/) — create rules and triage the alerts these channels deliver.
-- [Explore Rules → Routing](/docs/alerting/unified-alerts/explore-rules/#routing) — the read-only view of the Alertmanager route tree.
+- [Routing](/docs/alerting/unified-alerts/routing/) — the read-only view of the Alertmanager route tree.
 - [SLOs](/docs/slo/) — SLO burn-rate alerts route through Alertmanager like any other Prometheus rule.

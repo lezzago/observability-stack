@@ -1,6 +1,6 @@
 ---
 title: Explore Rules
-description: Browse the rules catalog — inspect definitions by type, status, and health, and view Prometheus routing
+description: Browse the rules catalog — inspect definitions by type, status, and health
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -47,14 +47,6 @@ The left rail is shared with the [Alerts tab](/docs/alerting/unified-alerts/expl
 - **Type** — `Log`, `Metric`, `APM`, `Cluster Metrics`.
 - **Labels** — filter to one service, exporter, or component in a click.
 
-## Routing
-
-The **Routing** tab is a read-only view of the **Prometheus Alertmanager** route tree: which receiver gets which alerts, the grouping and timing settings, and the configured receivers (webhook, Slack, email, PagerDuty). Routing is managed in the Alertmanager's own configuration.
-
-<Aside type="note" title="Routing applies to Prometheus alerts only">
-The routing tree belongs to the **Prometheus Alertmanager** and governs only **metric-rule** (Prometheus) alerts. It does not route OpenSearch log-rule, APM, or cluster-metrics alerts — those notify through the actions you attach to each rule's triggers, not through this tree. So the Routing tab reflects how Prometheus alerts are grouped and delivered, not every alert in the view.
-</Aside>
-
 ## Empty catalog
 
 If the **Rules** tab is empty, there are no rules for the selected data sources yet. Confirm the right data sources are selected in the filter, or [create a rule](/docs/alerting/unified-alerts/create-rules/).
@@ -63,4 +55,5 @@ If the **Rules** tab is empty, there are no rules for the selected data sources 
 
 - [Explore Alerts](/docs/alerting/unified-alerts/explore-alerts/) — triage the alerts these rules produce.
 - [Create Rules](/docs/alerting/unified-alerts/create-rules/) — build log and metric rules.
+- [Routing](/docs/alerting/unified-alerts/routing/) — the Prometheus Alertmanager route tree for metric alerts.
 - [Unified Alerts View](/docs/alerting/unified-alerts/) — overview, rule types, and classic monitors.

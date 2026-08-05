@@ -160,6 +160,7 @@ export default defineConfig({
 								{ label: 'Create Rules', link: '/alerting/unified-alerts/create-rules/' },
 								{ label: 'Explore Alerts', link: '/alerting/unified-alerts/explore-alerts/' },
 								{ label: 'Explore Rules', link: '/alerting/unified-alerts/explore-rules/' },
+									{ label: 'Routing', link: '/alerting/unified-alerts/routing/' },
 							],
 						},
 						{
