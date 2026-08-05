@@ -6,10 +6,15 @@ import tailwindcss from '@tailwindcss/vite';
 
 import react from '@astrojs/react';
 
+// Base and site are overridable via env for fork/preview deploys (e.g. project
+// GitHub Pages served under /<repo>). Defaults target the production site.
+const SITE = process.env.MAIN_SITE || 'https://observability.opensearch.org';
+const BASE = process.env.MAIN_BASE || '/';
+
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://observability.opensearch.org',
-  base: '/',
+  site: SITE,
+  base: BASE,
   integrations: [sitemap(), react()],
   vite: {
     plugins: [tailwindcss()],

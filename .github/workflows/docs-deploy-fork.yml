@@ -4,10 +4,14 @@ name: Deploy Docs to Fork GitHub Pages
 # site at https://<owner>.github.io/<repo>/docs/ so changes can be shared for
 # review before opening an upstream PR.
 #
-# It does NOT touch the source: all links stay root-absolute (/docs/...) so the
-# link validator and any upstream PR remain clean. A post-build step rewrites the
-# built dist/ output to add the /<repo> path prefix that project Pages requires,
-# and drops the upstream custom-domain CNAME (a fork cannot claim it).
+# Project Pages serve under a /<repo> path prefix, but the source assumes a
+# root domain (base /docs, links written as /docs/...). To serve correctly we:
+#   1. Build with the base overridden to /<repo>/docs via env, so Astro emits
+#      correct paths in HTML, CSS, AND the JS bundles (module/preload URLs that
+#      a post-build string rewrite cannot safely reach).
+#   2. Rewrite the hardcoded /docs/... content links in the CI checkout only
+#      (ephemeral — the committed source stays clean for upstream PRs).
+#   3. Drop the upstream custom-domain CNAME (a fork cannot claim it).
 #
 # Guarded to never run on the upstream opensearch-project repo.
 
@@ -48,6 +52,27 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      - name: Compute path prefix
+        id: prefix
+        run: echo "prefix=/${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
+      - name: Rewrite hardcoded content links for subpath (checkout only)
+        run: |
+          # Prefix root-absolute links in Markdown/MDX/Astro sources so they
+          # resolve under the /<repo> project-Pages path. Astro's base handles
+          # its own generated assets/nav and the JS bundles; this covers the
+          # hardcoded links and main-site static assets it does not rewrite.
+          # Mutates the CI checkout only — committed source stays clean.
+          PREFIX="${{ steps.prefix.outputs.prefix }}"
+          # Docs content links (both sites)
+          grep -rlE '/docs/' starlight-docs/src src 2>/dev/null | while read -r f; do
+            sed -i -E "s#(\]\(|href=\"|src=\"|link: ')/docs/#\1${PREFIX}/docs/#g" "$f"
+          done
+          # Main-site static assets referenced from the root domain
+          grep -rlE '"/(images|icons|favicon|opensearch-logo)' src 2>/dev/null | while read -r f; do
+            sed -i -E "s#\"/(images/|icons/|favicon|opensearch-logo)#\"${PREFIX}/\1#g" "$f"
+          done
+
       - name: Install dependencies
         run: npm ci
 
@@ -56,9 +81,15 @@ jobs:
         working-directory: ./docs/starlight-docs
 
       - name: Build main site
+        env:
+          MAIN_SITE: https://${{ github.repository_owner }}.github.io
+          MAIN_BASE: ${{ steps.prefix.outputs.prefix }}
         run: npm run build:main
 
       - name: Build Starlight docs
+        env:
+          DOCS_SITE: https://${{ github.repository_owner }}.github.io
+          DOCS_BASE: ${{ steps.prefix.outputs.prefix }}/docs
         run: npm run build
         working-directory: ./docs/starlight-docs
 
@@ -66,22 +97,6 @@ jobs:
         run: |
           mkdir -p dist/docs
           cp -r starlight-docs/dist/* dist/docs/
-
-      - name: Rewrite links for fork project-site subpath
-        run: |
-          # Project Pages serve under /<repo>/. Add that prefix to every
-          # root-absolute link and asset reference in the built output.
-          PREFIX="/${GITHUB_REPOSITORY#*/}"
-          echo "Rewriting root-absolute paths with prefix: ${PREFIX}"
-          find dist \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.xml" \) -type f -print0 |
-          while IFS= read -r -d '' f; do
-            sed -i -E \
-              -e "s#(href=\")/(docs/|_astro/|images/|pagefind/|icons/|sdks/|get-started/|send-data/|deploy/|apm/|dashboards/|ppl/|investigate/|alerting/|slo/|anomaly-detection/|forecasting/|ai-observability/|agent-health/|mcp/|claude-code/)#\1${PREFIX}/\2#g" \
-              -e "s#(src=\")/(docs/|_astro/|images/|pagefind/|icons/|opensearch-logo)#\1${PREFIX}/\2#g" \
-              -e "s#(href=\")/(favicon|opensearch-logo|sitemap)#\1${PREFIX}/\2#g" \
-              -e "s#href=\"/\"#href=\"${PREFIX}/\"#g" \
-              "$f"
-          done
 
       - name: Drop upstream custom-domain CNAME
         run: rm -f dist/CNAME

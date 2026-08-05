@@ -4,10 +4,15 @@ import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
 import starlightLinksValidator from 'starlight-links-validator';
 
+// Base and site are overridable via env for fork/preview deploys (e.g. project
+// GitHub Pages served under /<repo>/docs). Defaults target the production site.
+const DOCS_SITE = process.env.DOCS_SITE || 'https://observability.opensearch.org';
+const DOCS_BASE = process.env.DOCS_BASE || '/docs';
+
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://observability.opensearch.org',
-	base: '/docs',
+	site: DOCS_SITE,
+	base: DOCS_BASE,
 	redirects: {
 		'/get-started': '/get-started/installation/',
 		'/sdks/python': '/send-data/ai-agents/python/',
