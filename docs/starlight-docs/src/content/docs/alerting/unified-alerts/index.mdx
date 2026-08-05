@@ -30,7 +30,7 @@ The **Rules** tab lists every alerting rule from both engines side by side. The 
 | **APM** | Trace/span data (classic monitors) | Query DSL |
 | **Cluster Metrics** | OpenSearch cluster health (classic monitors) | API calls |
 
-The two you create in this view are **log rules** and **metric rules**. Both deploy to the correct engine and surface in the Rules catalog and the Alerts tab. See [Create Rules](/docs/alerting/unified-alerts/create-rules/) to build one.
+The two you create in this view are **log rules** and **metric rules** — those are the only types the **Create alert rule** button builds. See [Create Rules](/docs/alerting/unified-alerts/create-rules/) to build one. `APM` and `Cluster Metrics` rules also appear here but are [classic monitors](#classic-monitors-previous-experience) created in the standalone Alerting app.
 
 The catalog also surfaces the **anomaly detectors** and **forecasters** you define elsewhere in the stack, so their alerts sit alongside your rules. Set those up in [Anomaly Detection](/docs/anomaly-detection/) and [Forecasting](/docs/forecasting/).
 
@@ -38,6 +38,7 @@ The catalog also surfaces the **anomaly detectors** and **forecasters** you defi
 
 <CardGrid>
   <LinkCard title="Create Rules" href="/docs/alerting/unified-alerts/create-rules/" description="Build log rules (PPL) and metric rules (PromQL), with step-by-step walkthroughs and examples." />
+  <LinkCard title="Notification Channels" href="/docs/alerting/unified-alerts/notifications/" description="Route firing alerts to Slack, email, PagerDuty, and webhooks." />
   <LinkCard title="Explore Alerts" href="/docs/alerting/unified-alerts/explore-alerts/" description="Triage what's firing — filter the alert list, read the severity timeline, and scope data sources." />
   <LinkCard title="Explore Rules" href="/docs/alerting/unified-alerts/explore-rules/" description="Browse the rules catalog by type, status, and health, and view Prometheus routing." />
 </CardGrid>

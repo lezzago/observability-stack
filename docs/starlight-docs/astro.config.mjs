@@ -156,6 +156,7 @@ export default defineConfig({
 							items: [
 								{ label: 'Overview', link: '/alerting/unified-alerts/' },
 								{ label: 'Create Rules', link: '/alerting/unified-alerts/create-rules/' },
+								{ label: 'Notification Channels', link: '/alerting/unified-alerts/notifications/' },
 								{ label: 'Explore Alerts', link: '/alerting/unified-alerts/explore-alerts/' },
 								{ label: 'Explore Rules', link: '/alerting/unified-alerts/explore-rules/' },
 							],

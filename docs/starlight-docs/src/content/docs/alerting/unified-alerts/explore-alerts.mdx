@@ -11,7 +11,16 @@ The **Alerts** tab of the [Unified Alerts View](/docs/alerting/unified-alerts/) 
 
 ## The alert list
 
-Each row shows an alert's severity, state, message, and how long it has been active. Sort or search to find a specific alert, and click through to the rule that produced it. To inspect or edit that rule, switch to the [Rules tab](/docs/alerting/unified-alerts/explore-rules/).
+Each row shows an alert's severity, state, message, and how long it has been active. Sort or search to find a specific alert. Select an alert to open its detail panel — **Alert Details**, **Labels**, **Annotations**, and **Raw Alert Data** — with an **Open rule** button that jumps to the rule that produced it. To edit, disable, or delete that rule, use the [Rules tab](/docs/alerting/unified-alerts/explore-rules/#inspect-and-manage-a-rule).
+
+<Aside type="note" title="Quieting an alert">
+Individual alerts aren't muted from this list. To stop an alert:
+
+- **Disable the rule** ([Rules tab](/docs/alerting/unified-alerts/explore-rules/#inspect-and-manage-a-rule)) to stop it evaluating entirely, or
+- add an Alertmanager **silence** (at `http://localhost:9093` or via `amtool silence add`) to keep a metric rule running but suppress its notifications for a window — see [Notification Channels](/docs/alerting/unified-alerts/notifications/#metric-rule-notifications-alertmanager).
+
+The `muted` state you see in the **State** filter reflects alerts suppressed this way.
+</Aside>
 
 ## Alert timeline
 
@@ -43,8 +52,22 @@ Firing **metric-rule** (Prometheus) alerts are grouped and delivered through the
 
 If the **Alerts** tab is empty, nothing is currently firing for the selected data sources. Confirm the right data sources are selected in the filter, [create a rule](/docs/alerting/unified-alerts/create-rules/), or generate some load so alerts have something to fire on.
 
+## Alert isn't firing
+
+If a rule exists and is enabled but never produces an alert, work through this checklist. Open the rule from the [Rules tab](/docs/alerting/unified-alerts/explore-rules/#inspect-and-manage-a-rule) to see its definition while you check:
+
+1. **Is the rule enabled?** A disabled rule never evaluates. Check its status in the Rules catalog.
+2. **Does the query return data?** For a log rule, use **Run preview** in the rule editor — if it returns no rows, the condition can't trip. Confirm data is actually flowing into the queried indices (`logs-otel-v1*`, `otel-v1-apm-span*`) or Prometheus.
+3. **Is the condition threshold right?** A `Number of results` trigger fires on the *row count*; a `Custom condition` fires when a `where` clause matches an aggregated value. Make sure your `stats`/threshold combination can actually be satisfied — see [Trigger conditions](/docs/alerting/unified-alerts/create-rules/#trigger-conditions).
+4. **Has enough time passed?** The rule only evaluates on its **schedule** (log rules) or **evaluation interval** (metric rules). A metric rule also has a **pending period** / **For Duration** — the condition must hold continuously for that long before the alert becomes active.
+5. **Right time window?** Log-rule queries are bounded by the selected **time field**; a wrong or empty time field means no matching documents.
+6. **Right data source selected?** Confirm the alert's data source isn't filtered out of this view.
+
+If the rule *fires* but no notification arrives, the rule is working and the problem is delivery — see [Notification Channels → Verify delivery](/docs/alerting/unified-alerts/notifications/#verify-delivery).
+
 ## Related
 
 - [Explore Rules](/docs/alerting/unified-alerts/explore-rules/) — browse the rules catalog and inspect definitions.
 - [Create Rules](/docs/alerting/unified-alerts/create-rules/) — build the log and metric rules that populate this list.
+- [Notification Channels](/docs/alerting/unified-alerts/notifications/) — route firing alerts to Slack, email, PagerDuty, and webhooks.
 - [Unified Alerts View](/docs/alerting/unified-alerts/) — overview, rule types, and classic monitors.
