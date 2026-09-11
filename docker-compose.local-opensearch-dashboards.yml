@@ -12,7 +12,10 @@ x-default-logging: &logging
 services:
   # OpenSearch Dashboards - Web UI for visualizing logs and traces
   opensearch-dashboards:
-    image: ${OPENSEARCH_DOCKER_REPO}/opensearch-dashboards:${OPENSEARCH_DASHBOARDS_VERSION}
+    # Custom OSD image: built on top of OpenSearch Dashboards 3.8, but with the latest
+    # changes from the dashboards-observability plugin (all other plugins intact).
+    # Override with OPENSEARCH_DASHBOARDS_IMAGE to revert to the stock image.
+    image: ${OPENSEARCH_DASHBOARDS_IMAGE:-ashisagr32966/opensearch-dashboards-obs:${OPENSEARCH_DASHBOARDS_VERSION}}
     platform: linux/amd64
     container_name: opensearch-dashboards
     pull_policy: always
